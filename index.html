@@ -144,32 +144,31 @@ window.addEventListener("load", (event) => {
 document.addEventListener("keydown", (e) => {
     if (e.key === "." && !e.repeat) {
         currentTimeCode = performance.now();
+        toneGenerator.startTone();
+
         elapsedMs = Math.round(currentTimeCode - lastTimeCode);
         lastTimeCode = currentTimeCode;
 
         timeframe.push([elapsedMs, 0, '']);
-
-        toneGenerator.startTone();
     }
 });
 
 document.addEventListener("keyup", (e) => {
     if (e.key === ".") {
         currentTimeCode = performance.now();
+        toneGenerator.stopTone();
+
         elapsedMs = Math.round(currentTimeCode - lastTimeCode);
         lastTimeCode = currentTimeCode;
 
         timeframe.push([elapsedMs, 1, '']);
 
         evaluate();
-
-        toneGenerator.stopTone();
-
     }
 });
 
 function dotOrDash(time, dotTime){
-    return time > dotTime*2 ? '-' : '.';
+    return Math.abs(time - dotTime) < Math.abs(time - dotTime*3) ? '.' : '-';
 }
 
 function breakCharacter(time, dotTime){
