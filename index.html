@@ -1,8 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Morse Instructor</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+  <h2>Morse Instructor</h2>
+  <p>Use the "." Key to input Morse code:</p>
+  <form>
+    <div class="form-group">
+      <label for="code-area">Code:</label>
+      <textarea class="form-control fs-5" rows="10" id="code-area" readonly></textarea>
+      <div class="form-group">
+      <label for="decoded-area">Decoded:</label>
+      <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
+    </div>
+    </div>
+  </form>
+</div>
+
+</body>
+
 <script>
 let currentTimeCode = performance.now();
 let lastTimeCode = 0;
 let elapsedMs = 0;
 let timeframe = [];
+let codeArea = null;
+let decodedArea = null;
 const breaks = ['',' ',' / ', '\n']
 
 const MORSE = {
@@ -57,7 +88,7 @@ class Stats {
 }
 
 class ToneGenerator{
-    TIME_CONSTANT = 0.005;
+    TIME_CONSTANT = 0.001;
     currentTime = null;
 
     constructor(frequency = 550) {
@@ -106,6 +137,8 @@ class ToneGenerator{
 
 window.addEventListener("load", (event) => {
     toneGenerator = new ToneGenerator();
+    codeArea = document.getElementById("code-area");
+    decodedArea = document.getElementById("decoded-area");
 });
 
 document.addEventListener("keydown", (e) => {
@@ -163,9 +196,8 @@ function evaluate(){
     timeframe = timeframe.map(x => x[1] === 1 ? [x[0],x[1], dotOrDash(x[0], dotsTimesMedian)] : x)
     timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian)] : x)
 
-    console.log(timeframe.map(x => x[2]).join(''));
-    console.log(
-        timeframe
+    codeArea.value = timeframe.map(x => x[2]).join('');
+    decodedArea.value = timeframe
         .map(x => x[2])
         .join('')
         .split('\n')
@@ -175,7 +207,11 @@ function evaluate(){
         .map(z => z === undefined ? '?' : z)
         .join(''))
         .join(' '))
-        .join('\n'))
+        .join('\n');
+
+    codeArea.scrollTop = codeArea.scrollHeight;
+    decodedArea.scrollTop = decodedArea.scrollHeight;
 
 }
 </script>
+</html>
