@@ -3,7 +3,7 @@ let currentTimeCode = performance.now();
 let lastTimeCode = 0;
 let elapsedMs = 0;
 let timeframe = [];
-const breaks = ['',' ','   ', '\n']
+const breaks = ['',' ',' / ', '\n']
 
 const MORSE = {
   ".-":     "A", "-...":   "B", "-.-.":   "C", "-..":    "D",
@@ -136,21 +136,19 @@ document.addEventListener("keyup", (e) => {
 });
 
 function dotOrDash(time, dotTime){
-    return Math.abs(time-dotTime) < Math.abs(time-dotTime*3) ? '.' : '-';
+    return time > dotTime*2 ? '-' : '.';
 }
 
-function breakCharacter(time, dotTime, ul){
-    const diff = [Math.abs(time-dotTime), Math.abs(time-dotTime*3), Math.abs(time-dotTime*7), ul-time];
+function breakCharacter(time, dotTime){
+    const diff = [Math.abs(time-dotTime), Math.abs(time-dotTime*3), Math.abs(time-dotTime*7), Math.abs(time-dotTime*10)];
     minIdx = diff.indexOf(Math.min(...diff));
     return breaks[minIdx];
 }
 
 function evaluate(){
     if (timeframe.length < 20) return;
-
-    stats = Stats.quartiles(timeframe.map(x => x[0]));
     
-    highs = timeframe.filter(x => x[1] === 1 && x[0] < stats.ul);
+    highs = timeframe.filter(x => x[1] === 1);
     highStats = Stats.quartiles(highs.map(x => x[0]));
 
     dots = timeframe.filter(x => x[1] === 1 && x[0] <= highStats.median);
@@ -163,10 +161,21 @@ function evaluate(){
     dotsTimesMedian = Stats.quartiles(dotsTimes).median;
 
     timeframe = timeframe.map(x => x[1] === 1 ? [x[0],x[1], dotOrDash(x[0], dotsTimesMedian)] : x)
-    timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian, stats.ul)] : x)
+    timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian)] : x)
 
     console.log(timeframe.map(x => x[2]).join(''));
-    console.log(timeframe.map(x => x[2]).join('').split('\n').map(x => x.split(' ').map(y => MORSE[y]).join('')).join('\n'))
+    console.log(
+        timeframe
+        .map(x => x[2])
+        .join('')
+        .split('\n')
+        .map(x => x.split(' / '))
+        .map(x => x.map(y => y.split(' ')
+        .map(z => MORSE[z])
+        .map(z => z === undefined ? '?' : z)
+        .join(''))
+        .join(' '))
+        .join('\n'))
 
 }
 </script>
