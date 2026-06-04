@@ -1,0 +1,172 @@
+<script>
+let currentTimeCode = performance.now();
+let lastTimeCode = 0;
+let elapsedMs = 0;
+let timeframe = [];
+const breaks = ['',' ','   ', '\n']
+
+const MORSE = {
+  ".-":     "A", "-...":   "B", "-.-.":   "C", "-..":    "D",
+  ".":      "E", "..-.":   "F", "--.":    "G", "....":   "H",
+  "..":     "I", ".---":   "J", "-.-":    "K", ".-..":   "L",
+  "--":     "M", "-.":     "N", "---":    "O", ".--.":   "P",
+  "--.-":   "Q", ".-.":    "R", "...":    "S", "-":      "T",
+  "..-":    "U", "...-":   "V", ".--":    "W", "-..-":   "X",
+  "-.--":   "Y", "--..":   "Z",
+  "-----":  "0", ".----":  "1", "..---":  "2", "...--":  "3",
+  "....-":  "4", ".....":  "5", "-....":  "6", "--...":  "7",
+  "---..":  "8", "----.":  "9"
+};
+
+class Stats {
+  static quartiles(data) {
+    const A = data.slice().sort((a, b) => a - b);
+    const n = A.length;
+    if (n === 0) return { q1: NaN, median: NaN, q3: NaN };
+
+    const _med = arr => {
+      const m = arr.length;
+      const mid = Math.floor(m / 2);
+      return (m % 2)
+        ? arr[mid]
+        : (arr[mid - 1] + arr[mid]) / 2;
+    };
+
+    const median = _med(A);
+    const half = Math.floor(n / 2);
+
+    const lower = A.slice(0, half);
+    const upper = (n % 2 === 0)
+      ? A.slice(half)
+      : A.slice(half + 1);
+
+    return {
+      q1: _med(lower),
+      q3: _med(upper),
+      median,
+      iqr: _med(upper) - _med(lower),
+      ul: median + 1.5 * (_med(upper) - _med(lower)),
+      ll: median - 1.5 * (_med(upper) - _med(lower))
+    };
+  }
+
+  static iqr(data) {
+    const { q1, q3 } = Stats.quartiles(data);
+    return q3 - q1;
+  }
+}
+
+class ToneGenerator{
+    TIME_CONSTANT = 0.005;
+    currentTime = null;
+
+    constructor(frequency = 550) {
+        this.audioContext = new AudioContext();
+        this.oscillator = this.audioContext.createOscillator();
+        this.oscillator.type = "sine";
+        this.oscillator.frequency.value = frequency;
+
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+
+        this.oscillator.connect(this.gainNode);
+        this.gainNode.connect(this.audioContext.destination);
+
+        console.log("ToneGenerator initialized");
+    }
+
+    oscillatorStarted(){
+        return this.oscillator.context.state === 'running';
+    }
+
+    startOscillator() {
+        if (!this.oscillatorStarted()) {
+            this.oscillator.start();
+            console.log("oscillator started");
+        }
+    }
+
+    startTone() {
+        if (!this.oscillatorStarted()) {
+            this.startOscillator();
+        }
+        this.currentTime = this.audioContext.currentTime;
+        this.gainNode.gain.cancelScheduledValues(this.currentTime);
+        this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
+    }
+
+    stopTone(){
+        this.currentTime = this.audioContext.currentTime;
+        this.gainNode.gain.cancelScheduledValues(this.currentTime);
+        this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
+    }
+}
+
+
+
+window.addEventListener("load", (event) => {
+    toneGenerator = new ToneGenerator();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "." && !e.repeat) {
+        currentTimeCode = performance.now();
+        elapsedMs = Math.round(currentTimeCode - lastTimeCode);
+        lastTimeCode = currentTimeCode;
+
+        timeframe.push([elapsedMs, 0, '']);
+
+        toneGenerator.startTone();
+    }
+});
+
+document.addEventListener("keyup", (e) => {
+    if (e.key === ".") {
+        currentTimeCode = performance.now();
+        elapsedMs = Math.round(currentTimeCode - lastTimeCode);
+        lastTimeCode = currentTimeCode;
+
+        timeframe.push([elapsedMs, 1, '']);
+
+        evaluate();
+
+        toneGenerator.stopTone();
+
+    }
+});
+
+function dotOrDash(time, dotTime){
+    return Math.abs(time-dotTime) < Math.abs(time-dotTime*3) ? '.' : '-';
+}
+
+function breakCharacter(time, dotTime, ul){
+    const diff = [Math.abs(time-dotTime), Math.abs(time-dotTime*3), Math.abs(time-dotTime*7), ul-time];
+    minIdx = diff.indexOf(Math.min(...diff));
+    return breaks[minIdx];
+}
+
+function evaluate(){
+    if (timeframe.length < 20) return;
+
+    stats = Stats.quartiles(timeframe.map(x => x[0]));
+    
+    highs = timeframe.filter(x => x[1] === 1 && x[0] < stats.ul);
+    highStats = Stats.quartiles(highs.map(x => x[0]));
+
+    dots = timeframe.filter(x => x[1] === 1 && x[0] <= highStats.median);
+    dashes = timeframe.filter(x => x[1] === 1 && x[0] > highStats.median);
+
+    dotsTimes = dots.map(x => x[0]);
+    dotsFromDashesTimes = dashes.map(x => x[0] / 3);
+
+    dotsTimes = dotsTimes.concat(dotsFromDashesTimes);
+    dotsTimesMedian = Stats.quartiles(dotsTimes).median;
+
+    timeframe = timeframe.map(x => x[1] === 1 ? [x[0],x[1], dotOrDash(x[0], dotsTimesMedian)] : x)
+    timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian, stats.ul)] : x)
+
+    console.log(timeframe.map(x => x[2]).join(''));
+    console.log(timeframe.map(x => x[2]).join('').split('\n').map(x => x.split(' ').map(y => MORSE[y]).join('')).join('\n'))
+
+}
+</script>
