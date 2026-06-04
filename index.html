@@ -148,7 +148,7 @@ function breakCharacter(time, dotTime){
 function evaluate(){
     if (timeframe.length < 20) return;
     
-    highs = timeframe.filter(x => x[1] === 1);
+    highs = timeframe.slice(-100).filter(x => x[1] === 1);
     highStats = Stats.quartiles(highs.map(x => x[0]));
 
     dots = timeframe.filter(x => x[1] === 1 && x[0] <= highStats.median);
