@@ -15,8 +15,8 @@
   <p>Use the "." Key to input Morse code:</p>
   <form>
     <div class="form-group">
-      <label for="code-area">Code:</label>
-      <textarea class="form-control fs-5" rows="10" id="code-area" readonly></textarea>
+      <label for="code-area">Morse:</label>
+      <input class="form-control fs-5" id="code-area"/>
       <div class="form-group">
       <label for="decoded-area">Decoded:</label>
       <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
@@ -178,8 +178,6 @@ function breakCharacter(time, dotTime){
 }
 
 function evaluate(){
-    if (timeframe.length < 20) return;
-    
     highs = timeframe.slice(-100).filter(x => x[1] === 1);
     highStats = Stats.quartiles(highs.map(x => x[0]));
 
