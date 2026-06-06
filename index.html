@@ -15,8 +15,8 @@
   <p>Use the "." Key to input Morse code:</p>
   <form>
     <div class="form-group">
-      <label for="code-area">Morse:</label>
-      <input class="form-control fs-5" id="code-area"/>
+      <label for="code-input">Morse:</label>
+      <input class="form-control fs-5" id="code-input"/>
       <div class="form-group">
       <label for="decoded-area">Decoded:</label>
       <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
@@ -32,8 +32,8 @@ let currentTimeCode = performance.now();
 let lastTimeCode = 0;
 let elapsedMs = 0;
 let timeframe = [];
-let codeArea = null;
-let decodedArea = null;
+let codeInputEl = null;
+let decodeAreaEl = null;
 const breaks = ['',' ',' / ', '\n']
 
 const MORSE = {
@@ -137,14 +137,16 @@ class ToneGenerator{
 
 window.addEventListener("load", (event) => {
     toneGenerator = new ToneGenerator();
-    codeArea = document.getElementById("code-area");
-    decodedArea = document.getElementById("decoded-area");
+    codeInputEl = document.getElementById("code-input");
+    decodeAreaEl = document.getElementById("decoded-area");
 });
 
 document.addEventListener("keydown", (e) => {
     if (e.key === "." && !e.repeat) {
         currentTimeCode = performance.now();
         toneGenerator.startTone();
+
+        codeInputEl.focus();
 
         elapsedMs = Math.round(currentTimeCode - lastTimeCode);
         lastTimeCode = currentTimeCode;
@@ -193,8 +195,8 @@ function evaluate(){
     timeframe = timeframe.map(x => x[1] === 1 ? [x[0],x[1], dotOrDash(x[0], dotsTimesMedian)] : x)
     timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian)] : x)
 
-    codeArea.value = timeframe.map(x => x[2]).join('');
-    decodedArea.value = timeframe
+    codeInputEl.value = timeframe.map(x => x[2]).join('');
+    decodeAreaEl.value = timeframe
         .map(x => x[2])
         .join('')
         .split('\n')
@@ -206,8 +208,8 @@ function evaluate(){
         .join(' '))
         .join('\n');
 
-    codeArea.scrollTop = codeArea.scrollHeight;
-    decodedArea.scrollTop = decodedArea.scrollHeight;
+    codeInputEl.scrollTop = codeInputEl.scrollHeight;
+    decodeAreaEl.scrollTop = decodeAreaEl.scrollHeight;
 
 }
 </script>
