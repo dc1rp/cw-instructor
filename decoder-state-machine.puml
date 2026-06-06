@@ -1,0 +1,33 @@
+@startuml
+title Morse Decoder State Machine
+
+[*] -[Dashed]-> Idle
+Idle --> KeyDown : Key Down
+KeyDown --> Dash : Timeout
+Dash --> KeyUp : Key Up
+KeyDown --> Dot : Key Up
+Dot -[Dashed]-> KeyUp
+WordSpace --> NewLine : Timeout
+KeyUp --> CharacterSpace : Timeout
+CharacterSpace --> WordSpace : Timeout
+CharacterSpace --> KeyDown : Key Down
+KeyUp --> KeyDown : Key Down
+WordSpace --> KeyDown : Key Down
+NewLine -[Dashed]-> Idle
+
+state Idle
+state KeyDown : clearTimeout()
+state KeyDown : setTimeout()
+state Dot : clearTimeout()
+state Dot : dispatchEvent(dot)
+state Dot : switch()
+state Dash : dispatchEvent(dash)
+state KeyUp : setTimeout()
+state CharacterSpace : dispatchEvent(characterSpace)
+state CharacterSpace : setTimeout()
+state WordSpace : dispatchEvent(wordSpace)
+state WordSpace : setTimeout()
+state NewLine : dispatchEvent(newLine)
+state NewLine : switch()
+
+@enduml

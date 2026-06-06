@@ -1,216 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <title>Morse Instructor</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <title>Morse Instructor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="./morse.js"></script>
 </head>
+
 <body>
 
-<div class="container">
-  <h2>Morse Instructor</h2>
-  <p>Use the "." Key to input Morse code:</p>
-  <form>
-    <div class="form-group">
-      <label for="code-input">Morse:</label>
-      <input class="form-control fs-5" id="code-input"/>
-      <div class="form-group">
-      <label for="decoded-area">Decoded:</label>
-      <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
+    <div class="container">
+        <h2>Morse Instructor</h2>
+        <p>Use the "." Key to input Morse code:</p>
+        <form>
+            <div class="form-group">
+                <label for="code-input">Morse:</label>
+                <input class="form-control fs-5" id="code-input" value="<" readonly />
+                <div class="form-group">
+                    <label for="decoded-area">Decoded:</label>
+                    <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
+                </div>
+            </div>
+        </form>
     </div>
-    </div>
-  </form>
-</div>
 
 </body>
 
 <script>
-let currentTimeCode = performance.now();
-let lastTimeCode = 0;
-let elapsedMs = 0;
-let timeframe = [];
-let codeInputEl = null;
-let decodeAreaEl = null;
-const breaks = ['',' ',' / ', '\n']
+    let codeInputEl = null;
+    let decodeAreaEl = null;
+    let code = '<';
 
-const MORSE = {
-  ".-":     "A", "-...":   "B", "-.-.":   "C", "-..":    "D",
-  ".":      "E", "..-.":   "F", "--.":    "G", "....":   "H",
-  "..":     "I", ".---":   "J", "-.-":    "K", ".-..":   "L",
-  "--":     "M", "-.":     "N", "---":    "O", ".--.":   "P",
-  "--.-":   "Q", ".-.":    "R", "...":    "S", "-":      "T",
-  "..-":    "U", "...-":   "V", ".--":    "W", "-..-":   "X",
-  "-.--":   "Y", "--..":   "Z",
-  "-----":  "0", ".----":  "1", "..---":  "2", "...--":  "3",
-  "....-":  "4", ".....":  "5", "-....":  "6", "--...":  "7",
-  "---..":  "8", "----.":  "9"
-};
-
-class Stats {
-  static quartiles(data) {
-    const A = data.slice().sort((a, b) => a - b);
-    const n = A.length;
-    if (n === 0) return { q1: NaN, median: NaN, q3: NaN };
-
-    const _med = arr => {
-      const m = arr.length;
-      const mid = Math.floor(m / 2);
-      return (m % 2)
-        ? arr[mid]
-        : (arr[mid - 1] + arr[mid]) / 2;
+    const MORSE = {
+        ".-": "A", "-...": "B", "-.-.": "C", "-..": "D",
+        ".": "E", "..-.": "F", "--.": "G", "....": "H",
+        "..": "I", ".---": "J", "-.-": "K", ".-..": "L",
+        "--": "M", "-.": "N", "---": "O", ".--.": "P",
+        "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
+        "..-": "U", "...-": "V", ".--": "W", "-..-": "X",
+        "-.--": "Y", "--..": "Z",
+        "-----": "0", ".----": "1", "..---": "2", "...--": "3",
+        "....-": "4", ".....": "5", "-....": "6", "--...": "7",
+        "---..": "8", "----.": "9"
     };
 
-    const median = _med(A);
-    const half = Math.floor(n / 2);
+    class ToneGenerator {
+        TIME_CONSTANT = 0.001;
+        currentTime = null;
 
-    const lower = A.slice(0, half);
-    const upper = (n % 2 === 0)
-      ? A.slice(half)
-      : A.slice(half + 1);
+        constructor(frequency = 550) {
+            this.audioContext = new AudioContext();
+            this.oscillator = this.audioContext.createOscillator();
+            this.oscillator.type = "sine";
+            this.oscillator.frequency.value = frequency;
 
-    return {
-      q1: _med(lower),
-      q3: _med(upper),
-      median,
-      iqr: _med(upper) - _med(lower),
-      ul: median + 1.5 * (_med(upper) - _med(lower)),
-      ll: median - 1.5 * (_med(upper) - _med(lower))
-    };
-  }
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
 
-  static iqr(data) {
-    const { q1, q3 } = Stats.quartiles(data);
-    return q3 - q1;
-  }
-}
+            this.oscillator.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
 
-class ToneGenerator{
-    TIME_CONSTANT = 0.001;
-    currentTime = null;
+            console.log("ToneGenerator initialized");
+        }
 
-    constructor(frequency = 550) {
-        this.audioContext = new AudioContext();
-        this.oscillator = this.audioContext.createOscillator();
-        this.oscillator.type = "sine";
-        this.oscillator.frequency.value = frequency;
+        oscillatorStarted() {
+            return this.oscillator.context.state === 'running';
+        }
 
-        this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        startOscillator() {
+            if (!this.oscillatorStarted()) {
+                this.oscillator.start();
+                console.log("oscillator started");
+            }
+        }
 
-        this.oscillator.connect(this.gainNode);
-        this.gainNode.connect(this.audioContext.destination);
+        startTone() {
+            if (!this.oscillatorStarted()) {
+                this.startOscillator();
+            }
+            this.currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this.currentTime);
+            this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
+        }
 
-        console.log("ToneGenerator initialized");
-    }
-
-    oscillatorStarted(){
-        return this.oscillator.context.state === 'running';
-    }
-
-    startOscillator() {
-        if (!this.oscillatorStarted()) {
-            this.oscillator.start();
-            console.log("oscillator started");
+        stopTone() {
+            this.currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this.currentTime);
+            this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
         }
     }
 
-    startTone() {
-        if (!this.oscillatorStarted()) {
-            this.startOscillator();
+    function appendCode(character) {
+        code = code.slice(0, -1) + character + '<';
+        codeInputEl.value = code.split('\n').slice(-1);
+    }
+
+    function translate() {
+        const decode = code.slice(0, -1).trim().split(' / \n').map(line => line.trim().split('/').map(word => word.trim().split(' ').map(char => MORSE[char.trim()] || '?').join('')).join(' ')).join('\n');
+
+        decodeAreaEl.value = decode
+        decodeAreaEl.scrollTop = decodeAreaEl.scrollHeight;
+    }
+
+    window.addEventListener("load", (event) => {
+        codeInputEl = document.getElementById("code-input");
+        decodeAreaEl = document.getElementById("decoded-area");
+
+        toneGenerator = new ToneGenerator();
+        stateMachine = new StateMachine(60);
+        addEventListener(stateMachine.Events.DOT, () => appendCode("."));
+        addEventListener(stateMachine.Events.DASH, () => appendCode("-"));
+        addEventListener(stateMachine.Events.CHARACTER_SPACE, () => { appendCode(" "); translate(); });
+        addEventListener(stateMachine.Events.WORD_SPACE, () => appendCode("/ "));
+        addEventListener(stateMachine.Events.NEW_LINE, () => appendCode("\n"));
+
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "." && !e.repeat) {
+            toneGenerator.startTone();
+            stateMachine.transition(stateMachine.Trigger.KEY_DOWN);
         }
-        this.currentTime = this.audioContext.currentTime;
-        this.gainNode.gain.cancelScheduledValues(this.currentTime);
-        this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
-    }
+    });
 
-    stopTone(){
-        this.currentTime = this.audioContext.currentTime;
-        this.gainNode.gain.cancelScheduledValues(this.currentTime);
-        this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
-    }
-}
-
-
-
-window.addEventListener("load", (event) => {
-    toneGenerator = new ToneGenerator();
-    codeInputEl = document.getElementById("code-input");
-    decodeAreaEl = document.getElementById("decoded-area");
-});
-
-document.addEventListener("keydown", (e) => {
-    if (e.key === "." && !e.repeat) {
-        currentTimeCode = performance.now();
-        toneGenerator.startTone();
-
-        codeInputEl.focus();
-
-        elapsedMs = Math.round(currentTimeCode - lastTimeCode);
-        lastTimeCode = currentTimeCode;
-
-        timeframe.push([elapsedMs, 0, '']);
-    }
-});
-
-document.addEventListener("keyup", (e) => {
-    if (e.key === ".") {
-        currentTimeCode = performance.now();
-        toneGenerator.stopTone();
-
-        elapsedMs = Math.round(currentTimeCode - lastTimeCode);
-        lastTimeCode = currentTimeCode;
-
-        timeframe.push([elapsedMs, 1, '']);
-
-        evaluate();
-    }
-});
-
-function dotOrDash(time, dotTime){
-    return Math.abs(time - dotTime) < Math.abs(time - dotTime*3) ? '.' : '-';
-}
-
-function breakCharacter(time, dotTime){
-    const diff = [Math.abs(time-dotTime), Math.abs(time-dotTime*3), Math.abs(time-dotTime*7), Math.abs(time-dotTime*10)];
-    minIdx = diff.indexOf(Math.min(...diff));
-    return breaks[minIdx];
-}
-
-function evaluate(){
-    highs = timeframe.slice(-100).filter(x => x[1] === 1);
-    highStats = Stats.quartiles(highs.map(x => x[0]));
-
-    dots = timeframe.filter(x => x[1] === 1 && x[0] <= highStats.median);
-    dashes = timeframe.filter(x => x[1] === 1 && x[0] > highStats.median);
-
-    dotsTimes = dots.map(x => x[0]);
-    dotsFromDashesTimes = dashes.map(x => x[0] / 3);
-
-    dotsTimes = dotsTimes.concat(dotsFromDashesTimes);
-    dotsTimesMedian = Stats.quartiles(dotsTimes).median;
-
-    timeframe = timeframe.map(x => x[1] === 1 ? [x[0],x[1], dotOrDash(x[0], dotsTimesMedian)] : x)
-    timeframe = timeframe.map(x => x[1] === 0 ? [x[0],x[1], breakCharacter(x[0], dotsTimesMedian)] : x)
-
-    codeInputEl.value = timeframe.map(x => x[2]).join('');
-    decodeAreaEl.value = timeframe
-        .map(x => x[2])
-        .join('')
-        .split('\n')
-        .map(x => x.split(' / '))
-        .map(x => x.map(y => y.split(' ')
-        .map(z => MORSE[z])
-        .map(z => z === undefined ? '?' : z)
-        .join(''))
-        .join(' '))
-        .join('\n');
-
-    codeInputEl.scrollTop = codeInputEl.scrollHeight;
-    decodeAreaEl.scrollTop = decodeAreaEl.scrollHeight;
-
-}
+    document.addEventListener("keyup", (e) => {
+        if (e.key === ".") {
+            toneGenerator.stopTone();
+            stateMachine.transition(stateMachine.Trigger.KEY_UP);
+        }
+    });
 </script>
+
 </html>
