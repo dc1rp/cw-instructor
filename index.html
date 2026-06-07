@@ -99,6 +99,11 @@
         codeInputEl.value = code.split('\n').slice(-1);
     }
 
+    function correctCode(character) {
+        code = code.slice(0, -2) + character + '<';
+        codeInputEl.value = code.split('\n').slice(-1);
+    }
+
     function translate() {
         const decode = code.slice(0, -1).trim().split(' / \n').map(line => line.trim().split('/').map(word => word.trim().split(' ').map(char => MORSE[char.trim()] || '\u274C').join('')).join(' ')).join('\n');
 
@@ -111,9 +116,9 @@
         decodeAreaEl = document.getElementById("decoded-area");
 
         toneGenerator = new ToneGenerator();
-        stateMachine = new StateMachine(60);
+        stateMachine = new StateMachine(100);
         addEventListener(stateMachine.Events.DOT, () => appendCode("."));
-        addEventListener(stateMachine.Events.DASH, () => appendCode("-"));
+        addEventListener(stateMachine.Events.DASH, () => correctCode("-"));
         addEventListener(stateMachine.Events.CHARACTER_SPACE, () => { appendCode(" "); translate(); });
         addEventListener(stateMachine.Events.WORD_SPACE, () => appendCode("/ "));
         addEventListener(stateMachine.Events.NEW_LINE, () => appendCode("\n"));

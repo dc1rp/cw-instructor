@@ -46,12 +46,17 @@ class StateMachine {
                 break;
             case this.States.KEY_DOWN:
                 if (event === this.Trigger.KEY_UP) {
-                    this.switch(this.States.DOT);
+                    this.switch(this.States.IDLE);
                 } else if (event === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.DASH);
+                    this.switch(this.States.DOT);
                 }
                 break;
             case this.States.DOT:
+                if (event === this.Trigger.KEY_UP) {
+                    this.switch(this.States.KEY_UP);
+                } else if (event === this.Trigger.TIMEOUT) {
+                    this.switch(this.States.DASH);
+                }
                 break;
             case this.States.DASH:
                 if (event === this.Trigger.KEY_UP) {
@@ -111,40 +116,42 @@ class StateMachine {
         }
     }
 
+    startTimeout(delay){
+        this.timeout = setTimeout(() => {
+            this.transition(this.Trigger.TIMEOUT);
+        }, this.timeUnit * delay);
+    }
+
+    stopTimeout() {
+        clearTimeout(this.timeout);
+    }
+
     enter(state) {
         switch (state) {
             case this.States.IDLE:
                 break;
             case this.States.KEY_DOWN:
-                clearTimeout(this.timeout);
-                this.timeout = setTimeout(() => {
-                    this.transition(this.Trigger.TIMEOUT);
-                }, this.timeUnit * 3);
+                this.stopTimeout();
+                this.startTimeout(1);
                 break;
             case this.States.DOT:
-                clearTimeout(this.timeout);
+                this.startTimeout(2);
                 dispatchEvent(this.dotEvent);
-                this.switch(this.States.KEY_UP);
                 break;
             case this.States.DASH:
                 dispatchEvent(this.dashEvent);
                 break;
             case this.States.KEY_UP:
-                this.timeout = setTimeout(() => {
-                    this.transition(this.Trigger.TIMEOUT);
-                }, this.timeUnit * 3);
+                this.stopTimeout();
+                this.startTimeout(3);
                 break;
             case this.States.CHARACTER_SPACE:
                 dispatchEvent(this.characterSpaceEvent);
-                this.timeout = setTimeout(() => {
-                    this.transition(this.Trigger.TIMEOUT);
-                }, this.timeUnit * 4);
+                this.startTimeout(4);
                 break;
             case this.States.WORD_SPACE:
                 dispatchEvent(this.wordSpaceEvent);
-                this.timeout = setTimeout(() => {
-                    this.transition(this.Trigger.TIMEOUT);
-                }, this.timeUnit * 10);
+                this.startTimeout(10);
                 break;
             case this.States.NEW_LINE:
                 dispatchEvent(this.newLineEvent);
