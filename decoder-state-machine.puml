@@ -3,20 +3,20 @@ title Morse Decoder State Machine
 
 [*] -[Dashed]-> Idle
 Idle --> KeyDown : Key Down
-Dot --> Dash : Timeout
-KeyDown --> Idle : Key Up
-Dash --> KeyUp : Key Up
+KeyDown --> KeyUp : Key Up
 KeyDown --> Dot : Timeout
+Dot --> Dash : Timeout
 Dot --> KeyUp : KeyUp
-WordSpace --> NewLine : Timeout
+Dash --> KeyUp : Key Up
 KeyUp --> CharacterSpace : Timeout
+KeyUp --> KeyDown : Key Down
 CharacterSpace --> WordSpace : Timeout
 CharacterSpace --> KeyDown : Key Down
-KeyUp --> KeyDown : Key Down
 WordSpace --> KeyDown : Key Down
-NewLine -[Dashed]-> Idle
+WordSpace --> Idle : Timeout
 
-state Idle
+state Idle : stopTimeout()
+state Idle : dispatchEvent(newLine)
 state KeyDown : stopTimeout()
 state KeyDown : startTimeout(1)
 state Dot : startTimeout(2)
@@ -28,7 +28,5 @@ state CharacterSpace : dispatchEvent(characterSpace)
 state CharacterSpace : startTimeout(4)
 state WordSpace : dispatchEvent(wordSpace)
 state WordSpace : startTimeout(10)
-state NewLine : dispatchEvent(newLine)
-state NewLine : switch()
 
 @enduml

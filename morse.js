@@ -7,7 +7,6 @@ class StateMachine {
         KEY_UP: 4,
         CHARACTER_SPACE: 5,
         WORD_SPACE: 6,
-        NEW_LINE: 7
     });
 
     Trigger = Object.freeze({
@@ -19,9 +18,9 @@ class StateMachine {
     Events = Object.freeze({
         DASH: "dash",
         DOT: "dot",
-        CHARACTER_SPACE: "characterSpace",
-        WORD_SPACE: "wordSpace",
-        NEW_LINE: "newLine"
+        CHARACTER_SPACE: "character-space",
+        WORD_SPACE: "word-space",
+        NEW_LINE: "new-line"
     });
 
     dashEvent = new CustomEvent(this.Events.DASH);
@@ -46,7 +45,7 @@ class StateMachine {
                 break;
             case this.States.KEY_DOWN:
                 if (event === this.Trigger.KEY_UP) {
-                    this.switch(this.States.IDLE);
+                    this.switch(this.States.KEY_UP);
                 } else if (event === this.Trigger.TIMEOUT) {
                     this.switch(this.States.DOT);
                 }
@@ -81,7 +80,7 @@ class StateMachine {
                 if (event === this.Trigger.KEY_DOWN) {
                     this.switch(this.States.KEY_DOWN);
                 } else if (event === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.NEW_LINE);
+                    this.switch(this.States.IDLE);
                 }
                 break;
             case this.States.NEW_LINE:
@@ -90,30 +89,8 @@ class StateMachine {
     }
 
     switch (state) {
-        this.leave(state);
         this.currentState = state;
         this.enter(state);
-    }
-    
-    leave(state) {
-        switch (state) {
-            case this.States.IDLE:
-                break;
-            case this.States.KEY_DOWN:
-                break;
-            case this.States.DOT:
-                break;
-            case this.States.DASH:
-                break;
-            case this.States.KEY_UP:
-                break;
-            case this.States.CHARACTER_SPACE:
-                break;
-            case this.States.WORD_SPACE:
-                break;
-            case this.States.NEW_LINE:
-                break;
-        }
     }
 
     startTimeout(delay){
@@ -129,6 +106,8 @@ class StateMachine {
     enter(state) {
         switch (state) {
             case this.States.IDLE:
+                this.stopTimeout();
+                dispatchEvent(this.newLineEvent);
                 break;
             case this.States.KEY_DOWN:
                 this.stopTimeout();
@@ -152,10 +131,6 @@ class StateMachine {
             case this.States.WORD_SPACE:
                 dispatchEvent(this.wordSpaceEvent);
                 this.startTimeout(10);
-                break;
-            case this.States.NEW_LINE:
-                dispatchEvent(this.newLineEvent);
-                this.switch(this.States.IDLE);
                 break;
         }
     }
