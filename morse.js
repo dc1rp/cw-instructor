@@ -1,4 +1,71 @@
-class StateMachine {
+
+class ToneGenerator {
+        TIME_CONSTANT = 0.001;
+        currentTime = null;
+
+        constructor(frequency = 550) {
+            this.audioContext = new AudioContext();
+            this.oscillator = this.audioContext.createOscillator();
+            this.oscillator.type = "sine";
+            this.oscillator.frequency.value = frequency;
+
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+
+            this.oscillator.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+
+            console.log("ToneGenerator initialized");
+        }
+
+        oscillatorStarted() {
+            return this.oscillator.context.state === 'running';
+        }
+
+        startOscillator() {
+            if (!this.oscillatorStarted()) {
+                this.oscillator.start();
+                console.log("oscillator started");
+            }
+        }
+
+        startTone() {
+            if (!this.oscillatorStarted()) {
+                this.startOscillator();
+            }
+            this.currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this.currentTime);
+            this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
+        }
+
+        stopTone() {
+            this.currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this.currentTime);
+            this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
+        }
+    }
+
+class MorseDecoder {
+    static CODE = {
+        ".-": "A", "-...": "B", "-.-.": "C", "-..": "D",
+        ".": "E", "..-.": "F", "--.": "G", "....": "H",
+        "..": "I", ".---": "J", "-.-": "K", ".-..": "L",
+        "--": "M", "-.": "N", "---": "O", ".--.": "P",
+        "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
+        "..-": "U", "...-": "V", ".--": "W", "-..-": "X",
+        "-.--": "Y", "--..": "Z",
+        "-----": "0", ".----": "1", "..---": "2", "...--": "3",
+        "....-": "4", ".....": "5", "-....": "6", "--...": "7",
+        "---..": "8", "----.": "9"
+    };
+
+    static decode(code) {
+        return code.slice(0, -1).trim().split(' / \n').map(line => line.trim().split('/').map(word => word.trim().split(' ').map(char => MorseDecoder.CODE[char.trim()] || '\u274C').join('')).join(' ')).join('\n');
+    }
+
+}
+
+class MorseRecorder {
     States = Object.freeze({
         IDLE: 0,
         KEY_DOWN: 1,
@@ -16,70 +83,80 @@ class StateMachine {
     });
 
     Events = Object.freeze({
-        DASH: "dash",
-        DOT: "dot",
-        CHARACTER_SPACE: "character-space",
-        WORD_SPACE: "word-space",
-        NEW_LINE: "new-line"
+        RECORD_CHANGE: "record-change",
+        CHARACTER_COMPLETE: "character-complete"
     });
 
-    dashEvent = new CustomEvent(this.Events.DASH);
-    dotEvent = new CustomEvent(this.Events.DOT);
-    characterSpaceEvent = new CustomEvent(this.Events.CHARACTER_SPACE);
-    wordSpaceEvent = new CustomEvent(this.Events.WORD_SPACE);
-    newLineEvent = new CustomEvent(this.Events.NEW_LINE);
+    recordChangeEvent = new CustomEvent(this.Events.RECORD_CHANGE);
+    characterCompleteEvent = new CustomEvent(this.Events.CHARACTER_COMPLETE);
 
     timeout = null;
+    record = '';
 
     constructor(timeUnit = 100) {
         this.timeUnit = timeUnit;
         this.currentState = this.States.IDLE;
     }
 
-    transition(event) {
+    appendRecord(symbol){
+        this.record += symbol;
+        dispatchEvent(this.recordChangeEvent);
+
+        if (symbol === " "){
+            dispatchEvent(this.characterCompleteEvent)
+        }
+    }
+
+    correctRecord(symbol){
+        this.record = this.record.slice(0, -1) + symbol;
+
+        dispatchEvent(this.recordChangeEvent);
+    }
+
+    trigger(trigger) {
         switch (this.currentState) {
             case this.States.IDLE:
-                if (event === this.Trigger.KEY_DOWN) {
+                if (trigger === this.Trigger.KEY_DOWN) {
                     this.switch(this.States.KEY_DOWN);
                 }
                 break;
             case this.States.KEY_DOWN:
-                if (event === this.Trigger.KEY_UP) {
+                if (trigger === this.Trigger.KEY_UP) {
                     this.switch(this.States.KEY_UP);
-                } else if (event === this.Trigger.TIMEOUT) {
+                } else if (trigger === this.Trigger.TIMEOUT) {
                     this.switch(this.States.DOT);
                 }
                 break;
             case this.States.DOT:
-                if (event === this.Trigger.KEY_UP) {
+                if (trigger === this.Trigger.KEY_UP) {
                     this.switch(this.States.KEY_UP);
-                } else if (event === this.Trigger.TIMEOUT) {
+                } else if (trigger === this.Trigger.TIMEOUT) {
                     this.switch(this.States.DASH);
                 }
                 break;
             case this.States.DASH:
-                if (event === this.Trigger.KEY_UP) {
+                if (trigger === this.Trigger.KEY_UP) {
                     this.switch(this.States.KEY_UP);
                 }
                 break;
             case this.States.KEY_UP:
-                if (event === this.Trigger.TIMEOUT) {
+                if (trigger === this.Trigger.TIMEOUT) {
                     this.switch(this.States.CHARACTER_SPACE);
-                } else if (event === this.Trigger.KEY_DOWN) {
+                } else if (trigger === this.Trigger.KEY_DOWN) {
                     this.switch(this.States.KEY_DOWN);
                 }
                 break;
             case this.States.CHARACTER_SPACE:
-                if (event === this.Trigger.KEY_DOWN) {
+                if (trigger === this.Trigger.KEY_DOWN) {
                     this.switch(this.States.KEY_DOWN);
-                } else if (event === this.Trigger.TIMEOUT) {
+                } else if (trigger === this.Trigger.TIMEOUT) {
                     this.switch(this.States.WORD_SPACE);
                 }
                 break;
             case this.States.WORD_SPACE:
-                if (event === this.Trigger.KEY_DOWN) {
+                if (trigger === this.Trigger.KEY_DOWN) {
                     this.switch(this.States.KEY_DOWN);
-                } else if (event === this.Trigger.TIMEOUT) {
+                } else if (trigger === this.Trigger.TIMEOUT) {
                     this.switch(this.States.IDLE);
                 }
                 break;
@@ -95,7 +172,7 @@ class StateMachine {
 
     startTimeout(delay){
         this.timeout = setTimeout(() => {
-            this.transition(this.Trigger.TIMEOUT);
+            this.trigger(this.Trigger.TIMEOUT);
         }, this.timeUnit * delay);
     }
 
@@ -107,7 +184,7 @@ class StateMachine {
         switch (state) {
             case this.States.IDLE:
                 this.stopTimeout();
-                dispatchEvent(this.newLineEvent);
+                this.appendRecord("\n");
                 break;
             case this.States.KEY_DOWN:
                 this.stopTimeout();
@@ -115,22 +192,22 @@ class StateMachine {
                 break;
             case this.States.DOT:
                 this.startTimeout(2);
-                dispatchEvent(this.dotEvent);
+                this.appendRecord(".");
                 break;
             case this.States.DASH:
-                dispatchEvent(this.dashEvent);
+                this.correctRecord("-");
                 break;
             case this.States.KEY_UP:
                 this.stopTimeout();
                 this.startTimeout(3);
                 break;
             case this.States.CHARACTER_SPACE:
-                dispatchEvent(this.characterSpaceEvent);
                 this.startTimeout(4);
+                this.appendRecord(" ");
                 break;
             case this.States.WORD_SPACE:
-                dispatchEvent(this.wordSpaceEvent);
                 this.startTimeout(10);
+                this.appendRecord("/ ");
                 break;
         }
     }

@@ -1,7 +1,7 @@
 @startuml
-title Morse Decoder State Machine
+title State Machine Morse Recorder
 
-[*] -[Dashed]-> Idle
+[*] --> Idle
 Idle --> KeyDown : Key Down
 KeyDown --> KeyUp : Key Up
 KeyDown --> Dot : Timeout
@@ -16,17 +16,17 @@ WordSpace --> KeyDown : Key Down
 WordSpace --> Idle : Timeout
 
 state Idle : stopTimeout()
-state Idle : dispatchEvent(newLine)
+state Idle : appendRecord("\\n")
 state KeyDown : stopTimeout()
 state KeyDown : startTimeout(1)
 state Dot : startTimeout(2)
-state Dot : dispatchEvent(dot)
-state Dash : dispatchEvent(dash)
+state Dot : appendRecord(".")
+state Dash : correctRecord("-")
 state KeyUp : stopTimeout()
 state KeyUp : startTimeout(3)
-state CharacterSpace : dispatchEvent(characterSpace)
 state CharacterSpace : startTimeout(4)
-state WordSpace : dispatchEvent(wordSpace)
+state CharacterSpace : appendRecord(" ")
 state WordSpace : startTimeout(10)
+state WordSpace : appendRecord("/ ")
 
 @enduml

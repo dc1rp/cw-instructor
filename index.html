@@ -33,109 +33,39 @@
 <script>
     let codeInputEl = null;
     let decodeAreaEl = null;
-    let code = '<';
+    let toneGenerator = null;
+    let morseRecorder = null;
 
-    const MORSE = {
-        ".-": "A", "-...": "B", "-.-.": "C", "-..": "D",
-        ".": "E", "..-.": "F", "--.": "G", "....": "H",
-        "..": "I", ".---": "J", "-.-": "K", ".-..": "L",
-        "--": "M", "-.": "N", "---": "O", ".--.": "P",
-        "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
-        "..-": "U", "...-": "V", ".--": "W", "-..-": "X",
-        "-.--": "Y", "--..": "Z",
-        "-----": "0", ".----": "1", "..---": "2", "...--": "3",
-        "....-": "4", ".....": "5", "-....": "6", "--...": "7",
-        "---..": "8", "----.": "9"
-    };
-
-    class ToneGenerator {
-        TIME_CONSTANT = 0.001;
-        currentTime = null;
-
-        constructor(frequency = 550) {
-            this.audioContext = new AudioContext();
-            this.oscillator = this.audioContext.createOscillator();
-            this.oscillator.type = "sine";
-            this.oscillator.frequency.value = frequency;
-
-            this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-
-            this.oscillator.connect(this.gainNode);
-            this.gainNode.connect(this.audioContext.destination);
-
-            console.log("ToneGenerator initialized");
-        }
-
-        oscillatorStarted() {
-            return this.oscillator.context.state === 'running';
-        }
-
-        startOscillator() {
-            if (!this.oscillatorStarted()) {
-                this.oscillator.start();
-                console.log("oscillator started");
-            }
-        }
-
-        startTone() {
-            if (!this.oscillatorStarted()) {
-                this.startOscillator();
-            }
-            this.currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this.currentTime);
-            this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
-        }
-
-        stopTone() {
-            this.currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this.currentTime);
-            this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
-        }
-    }
-
-    function appendCode(character) {
-        code = code.slice(0, -1) + character + '<';
-        codeInputEl.value = code.split('\n').slice(-1);
-    }
-
-    function correctCode(character) {
-        code = code.slice(0, -2) + character + '<';
-        codeInputEl.value = code.split('\n').slice(-1);
-    }
-
-    function translate() {
-        const decode = code.slice(0, -1).trim().split(' / \n').map(line => line.trim().split('/').map(word => word.trim().split(' ').map(char => MORSE[char.trim()] || '\u274C').join('')).join(' ')).join('\n');
-
-        decodeAreaEl.value = decode
+    function updateDecodeArea() {
+        decodeAreaEl.value = MorseDecoder.decode(morseRecorder.record);
         decodeAreaEl.scrollTop = decodeAreaEl.scrollHeight;
+    }
+
+    function updateCodeInput() {
+        codeInputEl.value = morseRecorder.record.split("\n").slice(-1) + "<";
     }
 
     window.addEventListener("load", (event) => {
         codeInputEl = document.getElementById("code-input");
         decodeAreaEl = document.getElementById("decoded-area");
-
         toneGenerator = new ToneGenerator();
-        stateMachine = new StateMachine(100);
-        addEventListener(stateMachine.Events.DOT, () => appendCode("."));
-        addEventListener(stateMachine.Events.DASH, () => correctCode("-"));
-        addEventListener(stateMachine.Events.CHARACTER_SPACE, () => { appendCode(" "); translate(); });
-        addEventListener(stateMachine.Events.WORD_SPACE, () => appendCode("/ "));
-        addEventListener(stateMachine.Events.NEW_LINE, () => appendCode("\n"));
+        morseRecorder = new MorseRecorder(100);
 
+        addEventListener(morseRecorder.Events.RECORD_CHANGE, () => updateCodeInput());
+        addEventListener(morseRecorder.Events.CHARACTER_COMPLETE, () => updateDecodeArea());
     });
 
     document.addEventListener("keydown", (e) => {
         if (e.key === "." && !e.repeat) {
             toneGenerator.startTone();
-            stateMachine.transition(stateMachine.Trigger.KEY_DOWN);
+            morseRecorder.trigger(morseRecorder.Trigger.KEY_DOWN);
         }
     });
 
     document.addEventListener("keyup", (e) => {
         if (e.key === ".") {
             toneGenerator.stopTone();
-            stateMachine.transition(stateMachine.Trigger.KEY_UP);
+            morseRecorder.trigger(morseRecorder.Trigger.KEY_UP);
         }
     });
 </script>
