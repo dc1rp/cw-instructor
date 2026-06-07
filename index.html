@@ -49,7 +49,7 @@
         codeInputEl = document.getElementById("code-input");
         decodeAreaEl = document.getElementById("decoded-area");
         toneGenerator = new ToneGenerator();
-        morseRecorder = new MorseRecorder(100);
+        morseRecorder = new MorseRecorder();
 
         addEventListener(morseRecorder.Events.RECORD_CHANGE, () => updateCodeInput());
         addEventListener(morseRecorder.Events.CHARACTER_COMPLETE, () => updateDecodeArea());

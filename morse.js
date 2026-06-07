@@ -93,8 +93,8 @@ class MorseRecorder {
     timeout = null;
     record = '';
 
-    constructor(timeUnit = 100) {
-        this.timeUnit = timeUnit;
+    constructor(wpm = 12) {
+        this.timeUnit = 1200 / wpm;
         this.currentState = this.States.IDLE;
     }
 
