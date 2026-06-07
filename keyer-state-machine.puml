@@ -1,0 +1,20 @@
+@startuml
+title State Machine Morse Recorder
+
+[*] --> Idle
+Idle --> Dot : "." Down
+Idle --> Dash : "-" Down
+Dot --> Pause : Timeout
+Dash --> Pause : Timeout
+Pause --> Squeeze : Timeout
+Squeeze -[Dashed]-> Idle : No Keys
+Squeeze -[Dashed]-> Dot : Keys Down & \n lastKey = "-"
+Squeeze -[Dashed]-> Dash : Keys Down & \n lastKey = "."
+
+state Idle
+state Dot
+state Dash
+state Squeeze
+state Pause
+
+@enduml
