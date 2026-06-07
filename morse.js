@@ -4,7 +4,7 @@ class ToneGenerator {
         currentTime = null;
 
         constructor(frequency = 550) {
-            this.audioContext = new AudioContext();
+            this.audioContext = new AudioContext({latencyHint: "interactive"});
             this.oscillator = this.audioContext.createOscillator();
             this.oscillator.type = "sine";
             this.oscillator.frequency.value = frequency;
