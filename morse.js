@@ -24,6 +24,10 @@ class ToneGenerator {
             this.gainNode.connect(this.audioContext.destination);
         }
 
+        get latency() {
+            return this.audioContext.outputLatency;
+        }
+
         get frequency() {
             return this._frequency;
         }
@@ -99,24 +103,28 @@ class MorseRecorder {
 
     _timeout = null;
     _record = '';
-    _currentState = this._states.idle;
+    _state = this._states.idle;
 
     constructor(wpm = 12) {
-        this.timeUnit = 1200 / wpm;
-        this._currentState = this._states.idle;
+        this._timeUnit = 1200 / wpm;
+        this._state = this._states.idle;
     }
 
     get record(){
         return this._record;
     }
 
+    set record(value){
+        this._record = value;
+        dispatchEvent(new CustomEvent(this.events.recordChange));
+    }
+
     get state(){
-        return this._currentState;
+        return this._state;
     }
 
     _appendRecord(symbol){
-        this._record += symbol;
-        dispatchEvent(new CustomEvent(this.events.recordChange));
+        this.record += symbol;
 
         if (symbol === " "){
             dispatchEvent(new CustomEvent(this.events.characterComplete));
@@ -124,9 +132,7 @@ class MorseRecorder {
     }
 
     _correctRecord(symbol){
-        this._record = this._record.slice(0, -1) + symbol;
-
-        dispatchEvent(new CustomEvent(this.events.recordChange));
+        this.record = this.record.slice(0, -1) + symbol;
     }
 
     onRecordChange(callback) {
@@ -146,7 +152,7 @@ class MorseRecorder {
     }
 
     _trigger(event) {
-        switch (this._currentState) {
+        switch (this.state) {
             case this._states.idle:
                 if (event === this._events.keyDown) {
                     this._switch(this._states.keyDown);
@@ -198,14 +204,14 @@ class MorseRecorder {
     }
 
     _switch (state) {
-        this._currentState = state;
+        this._state = state;
         this._enter(state);
     }
 
     _startTimeout(delay){
         this._timeout = setTimeout(() => {
             this._trigger(this._events.timeout);
-        }, this.timeUnit * delay);
+        }, this._timeUnit * delay);
     }
 
     _stopTimeout() {
@@ -242,5 +248,173 @@ class MorseRecorder {
                 this._appendRecord("/ ");
                 break;
         }
+    }
+}
+
+class AutoKeyer{
+    _states = Object.freeze({
+        idle: 0,
+        dot: 1,
+        dash: 2,
+        squeeze: 3,
+        pause: 4,
+    });
+
+    _events = Object.freeze({
+        periodDown: 0,
+        minusDown: 1,
+        timeout: 2
+
+    });
+
+    events = Object.freeze({
+        signalChange: "signal-change",
+    });
+
+    _state = null;
+    _timeUnit = null;
+    _keyMap = null;
+    _lastActiveState = null;
+    _signal = null;
+
+    constructor(wpm = 12) {
+        this._timeUnit = 1200/wpm
+        this._state = this._states.idle;
+        this._keyMap = []
+        this._signal = false;
+    }
+
+    get signal(){
+        return this._signal;
+    }
+
+    set signal(value){
+        this._signal = value;
+        dispatchEvent(new CustomEvent(this.events.signalChange));
+    }
+
+    get keyMap(){
+        return this._keyMap
+    }
+
+    get wpm(){
+        return this._timeUnit*1200;
+    }
+
+    get state(){
+        return this._state;
+    }
+
+    get lastActiveState(){
+        return this._lastActiveState
+    }
+
+    set lastActiveState(value){
+        this._lastActiveState = value;
+    }
+
+    onSignalChange(callback) {
+        addEventListener(this.events.signalChange, callback);
+    }
+
+    periodDown(){
+        this._keyMap.push('.');
+        this._trigger(this._events.periodDown);
+        console.log(this._keyMap);
+    }
+
+    periodUp(){
+        this._keyMap.splice(this._keyMap.indexOf('.'), 1);
+        console.log(this._keyMap);
+    }
+
+    minusDown(){
+        this._keyMap.push('-');
+        this._trigger(this._events.minusDown);
+        console.log(this._keyMap);
+    }
+
+    minusUp(){
+        this._keyMap.splice(this._keyMap.indexOf('-'), 1);
+        console.log(this._keyMap);
+    }
+
+    _trigger(event) {
+        switch (this.state) {
+            case this._states.idle:
+                if (event === this._events.periodDown) {
+                    this._switch(this._states.dot);
+                } else if (event === this._events.minusDown) {
+                    this._switch(this._states.dash);
+                }
+                break;
+            case this._states.dot:
+                if (event === this._events.timeout) {
+                    this._switch(this._states.pause);
+                }
+                break;
+            case this._states.dash:
+                if (event === this._events.timeout) {
+                    this._switch(this._states.pause);
+                }
+                break;
+            case this._states.squeeze:
+                break;
+            case this._states.pause:
+                if (event === this._events.timeout) {
+                    this._switch(this._states.squeeze);
+                }
+                break;
+        }
+    }
+
+    _switch(state){
+        this._state = state;
+        this._enter(state);
+    }
+
+    _startTimeout(delay){
+        this._timeout = setTimeout(() => {
+            this._trigger(this._events.timeout);
+        }, this._timeUnit * delay);
+    }
+
+    _enter(state){
+        switch (state) {
+            case this._states.idle:
+                break;
+            case this._states.dot:
+                this.signal = true;
+                this._startTimeout(1);
+                this.lastActiveState = this._states.dot
+                break;
+            case this._states.dash:
+                this.signal = true;
+                this._startTimeout(3);
+                this.lastActiveState = this._states.dash
+                break;
+            case this._states.squeeze:
+                if (this.keyMap.length === 0){
+                    this._switch(this._states.idle);
+                } else if (this.keyMap.length === 1 && this.keyMap.includes('.')){
+                    this._switch(this._states.dot);
+                } else if (this.keyMap.length === 1 && this.keyMap.includes('-')){
+                    this._switch(this._states.dash);
+                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dash){
+                    this._switch(this._states.dot);
+                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dot){
+                    this._switch(this._states.dash);
+                }
+                break;
+            case this._states.pause:
+                this.signal = false;
+                this._startTimeout(1);
+                break;
+        }
+    }
+
+    _switch(state){
+        this._state = state;
+        this._enter(state);
     }
 }

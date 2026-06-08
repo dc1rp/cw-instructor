@@ -1,20 +1,27 @@
 @startuml
-title State Machine Morse Recorder
+title State Machine Auto Keyer
 
 [*] --> Idle
-Idle --> Dot : "." Down
-Idle --> Dash : "-" Down
+Idle --> Dot : keymap.push('.')
+Idle --> Dash : keymap.push('-')
 Dot --> Pause : Timeout
 Dash --> Pause : Timeout
 Pause --> Squeeze : Timeout
-Squeeze -[Dashed]-> Idle : No Keys
-Squeeze -[Dashed]-> Dot : Keys Down & \n lastKey = "-"
-Squeeze -[Dashed]-> Dash : Keys Down & \n lastKey = "."
+Squeeze -[Dashed]-> Idle : keymap.length() == 0
+Squeeze -[Dashed]-> Dot : keymap.length() == 1 && \n keymap.includes('.')
+Squeeze -[Dashed]-> Dot : keymap.length() == 2 && \n lastActiveState == dash
+Squeeze -[Dashed]-> Dash : keymap.length() == 1 && \n keymap.includes('-')
+Squeeze -[Dashed]-> Dash : keymap.length() == 2 && \n lastActiveState == dot
 
 state Idle
-state Dot
-state Dash
+state Dot : signal(high)
+state Dot : startTimeout(1)
+state Dot : lastActiveState = dot
+state Dash : signal(high)
+state Dash : startTimeout(3)
+state Dash : lastActiveState = dash
 state Squeeze
-state Pause
+state Pause : signal(low)
+state Pause : startTimeout(1)
 
 @enduml
