@@ -49,23 +49,23 @@
         codeInputEl = document.getElementById("code-input");
         decodeAreaEl = document.getElementById("decoded-area");
         toneGenerator = new ToneGenerator();
-        morseRecorder = new MorseRecorder();
 
-        addEventListener(morseRecorder.Events.RECORD_CHANGE, () => updateCodeInput());
-        addEventListener(morseRecorder.Events.CHARACTER_COMPLETE, () => updateDecodeArea());
+        morseRecorder = new MorseRecorder();
+        morseRecorder.onRecordChange(updateCodeInput);
+        morseRecorder.onCharacterComplete(updateDecodeArea);
     });
 
     document.addEventListener("keydown", (e) => {
         if (e.key === "." && !e.repeat) {
             toneGenerator.startTone();
-            morseRecorder.trigger(morseRecorder.Trigger.KEY_DOWN);
+            morseRecorder.triggerKeyDown();
         }
     });
 
     document.addEventListener("keyup", (e) => {
         if (e.key === ".") {
             toneGenerator.stopTone();
-            morseRecorder.trigger(morseRecorder.Trigger.KEY_UP);
+            morseRecorder.triggerKeyUp();
         }
     });
 </script>

@@ -1,9 +1,17 @@
 
 class ToneGenerator {
-        TIME_CONSTANT = 0.001;
-        currentTime = null;
+        _timeConstant = null;
+        _frequency = null;
+        _currentTime = null;
 
-        constructor(frequency = 550) {
+        constructor(frequency = 550, timeConstant = 0.001) {
+            this._frequency = frequency;
+            this._timeConstant = timeConstant;
+
+            this._init(this.frequency);
+        }
+
+        _init(frequency) {
             this.audioContext = new AudioContext({latencyHint: "interactive"});
             this.oscillator = this.audioContext.createOscillator();
             this.oscillator.type = "sine";
@@ -14,34 +22,36 @@ class ToneGenerator {
 
             this.oscillator.connect(this.gainNode);
             this.gainNode.connect(this.audioContext.destination);
-
-            console.log("ToneGenerator initialized");
         }
 
-        oscillatorStarted() {
+        get frequency() {
+            return this._frequency;
+        }
+
+        _oscillatorStarted() {
             return this.oscillator.context.state === 'running';
         }
 
-        startOscillator() {
-            if (!this.oscillatorStarted()) {
+        _startOscillator() {
+            if (!this._oscillatorStarted()) {
                 this.oscillator.start();
                 console.log("oscillator started");
             }
         }
 
         startTone() {
-            if (!this.oscillatorStarted()) {
-                this.startOscillator();
+            if (!this._oscillatorStarted()) {
+                this._startOscillator();
             }
-            this.currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this.currentTime);
-            this.gainNode.gain.setTargetAtTime(1, this.currentTime, this.TIME_CONSTANT);
+            this._currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this._currentTime);
+            this.gainNode.gain.setTargetAtTime(1, this._currentTime, this._timeConstant);
         }
 
         stopTone() {
-            this.currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this.currentTime);
-            this.gainNode.gain.setTargetAtTime(0, this.currentTime, this.TIME_CONSTANT);
+            this._currentTime = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(this._currentTime);
+            this.gainNode.gain.setTargetAtTime(0, this._currentTime, this._timeConstant);
         }
     }
 
@@ -66,148 +76,170 @@ class MorseDecoder {
 }
 
 class MorseRecorder {
-    States = Object.freeze({
-        IDLE: 0,
-        KEY_DOWN: 1,
-        DOT: 2,
-        DASH: 3,
-        KEY_UP: 4,
-        CHARACTER_SPACE: 5,
-        WORD_SPACE: 6,
+    _states = Object.freeze({
+        idle: 0,
+        keyDown: 1,
+        dot: 2,
+        dash: 3,
+        keyUp: 4,
+        characterSpace: 5,
+        wordSpace: 6,
     });
 
-    Trigger = Object.freeze({
-        KEY_DOWN: 0,
-        KEY_UP: 1,
-        TIMEOUT: 2
+    _events = Object.freeze({
+        keyDown: 0,
+        keyUp: 1,
+        timeout: 2
     });
 
-    Events = Object.freeze({
-        RECORD_CHANGE: "record-change",
-        CHARACTER_COMPLETE: "character-complete"
+    events = Object.freeze({
+        recordChange: "record-change",
+        characterComplete: "character-complete"
     });
 
-    recordChangeEvent = new CustomEvent(this.Events.RECORD_CHANGE);
-    characterCompleteEvent = new CustomEvent(this.Events.CHARACTER_COMPLETE);
-
-    timeout = null;
-    record = '';
+    _timeout = null;
+    _record = '';
+    _currentState = this._states.idle;
 
     constructor(wpm = 12) {
         this.timeUnit = 1200 / wpm;
-        this.currentState = this.States.IDLE;
+        this._currentState = this._states.idle;
     }
 
-    appendRecord(symbol){
-        this.record += symbol;
-        dispatchEvent(this.recordChangeEvent);
+    get record(){
+        return this._record;
+    }
+
+    get state(){
+        return this._currentState;
+    }
+
+    _appendRecord(symbol){
+        this._record += symbol;
+        dispatchEvent(new CustomEvent(this.events.recordChange));
 
         if (symbol === " "){
-            dispatchEvent(this.characterCompleteEvent)
+            dispatchEvent(new CustomEvent(this.events.characterComplete));
         }
     }
 
-    correctRecord(symbol){
-        this.record = this.record.slice(0, -1) + symbol;
+    _correctRecord(symbol){
+        this._record = this._record.slice(0, -1) + symbol;
 
-        dispatchEvent(this.recordChangeEvent);
+        dispatchEvent(new CustomEvent(this.events.recordChange));
     }
 
-    trigger(trigger) {
-        switch (this.currentState) {
-            case this.States.IDLE:
-                if (trigger === this.Trigger.KEY_DOWN) {
-                    this.switch(this.States.KEY_DOWN);
+    onRecordChange(callback) {
+        addEventListener(this.events.recordChange, callback);
+    }
+
+    onCharacterComplete(callback) {
+        addEventListener(this.events.characterComplete, callback);
+    }
+
+    triggerKeyDown(){
+        this._trigger(this._events.keyDown);
+    }
+
+    triggerKeyUp(){
+        this._trigger(this._events.keyUp);
+    }
+
+    _trigger(event) {
+        switch (this._currentState) {
+            case this._states.idle:
+                if (event === this._events.keyDown) {
+                    this._switch(this._states.keyDown);
                 }
                 break;
-            case this.States.KEY_DOWN:
-                if (trigger === this.Trigger.KEY_UP) {
-                    this.switch(this.States.KEY_UP);
-                } else if (trigger === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.DOT);
+            case this._states.keyDown:
+                if (event === this._events.keyUp) {
+                    this._switch(this._states.keyUp);
+                } else if (event === this._events.timeout) {
+                    this._switch(this._states.dot);
                 }
                 break;
-            case this.States.DOT:
-                if (trigger === this.Trigger.KEY_UP) {
-                    this.switch(this.States.KEY_UP);
-                } else if (trigger === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.DASH);
+            case this._states.dot:
+                if (event === this._events.keyUp) {
+                    this._switch(this._states.keyUp);
+                } else if (event === this._events.timeout) {
+                    this._switch(this._states.dash);
                 }
                 break;
-            case this.States.DASH:
-                if (trigger === this.Trigger.KEY_UP) {
-                    this.switch(this.States.KEY_UP);
+            case this._states.dash:
+                if (event === this._events.keyUp) {
+                    this._switch(this._states.keyUp);
                 }
                 break;
-            case this.States.KEY_UP:
-                if (trigger === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.CHARACTER_SPACE);
-                } else if (trigger === this.Trigger.KEY_DOWN) {
-                    this.switch(this.States.KEY_DOWN);
+            case this._states.keyUp:
+                if (event === this._events.timeout) {
+                    this._switch(this._states.characterSpace);
+                } else if (event === this._events.keyDown) {
+                    this._switch(this._states.keyDown);
                 }
                 break;
-            case this.States.CHARACTER_SPACE:
-                if (trigger === this.Trigger.KEY_DOWN) {
-                    this.switch(this.States.KEY_DOWN);
-                } else if (trigger === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.WORD_SPACE);
+            case this._states.characterSpace:
+                if (event === this._events.keyDown) {
+                    this._switch(this._states.keyDown);
+                } else if (event === this._events.timeout) {
+                    this._switch(this._states.wordSpace);
                 }
                 break;
-            case this.States.WORD_SPACE:
-                if (trigger === this.Trigger.KEY_DOWN) {
-                    this.switch(this.States.KEY_DOWN);
-                } else if (trigger === this.Trigger.TIMEOUT) {
-                    this.switch(this.States.IDLE);
+            case this._states.wordSpace:
+                if (event === this._events.keyDown) {
+                    this._switch(this._states.keyDown);
+                } else if (event === this._events.timeout) {
+                    this._switch(this._states.idle);
                 }
                 break;
-            case this.States.NEW_LINE:
+            case this._states.NEW_LINE:
                 break;
         }
     }
 
-    switch (state) {
-        this.currentState = state;
-        this.enter(state);
+    _switch (state) {
+        this._currentState = state;
+        this._enter(state);
     }
 
-    startTimeout(delay){
-        this.timeout = setTimeout(() => {
-            this.trigger(this.Trigger.TIMEOUT);
+    _startTimeout(delay){
+        this._timeout = setTimeout(() => {
+            this._trigger(this._events.timeout);
         }, this.timeUnit * delay);
     }
 
-    stopTimeout() {
-        clearTimeout(this.timeout);
+    _stopTimeout() {
+        clearTimeout(this._timeout);
     }
 
-    enter(state) {
+    _enter(state) {
         switch (state) {
-            case this.States.IDLE:
-                this.stopTimeout();
-                this.appendRecord("\n");
+            case this._states.idle:
+                this._stopTimeout();
+                this._appendRecord("\n");
                 break;
-            case this.States.KEY_DOWN:
-                this.stopTimeout();
-                this.startTimeout(1);
+            case this._states.keyDown:
+                this._stopTimeout();
+                this._startTimeout(1);
                 break;
-            case this.States.DOT:
-                this.startTimeout(2);
-                this.appendRecord(".");
+            case this._states.dot:
+                this._startTimeout(2);
+                this._appendRecord(".");
                 break;
-            case this.States.DASH:
-                this.correctRecord("-");
+            case this._states.dash:
+                this._correctRecord("-");
                 break;
-            case this.States.KEY_UP:
-                this.stopTimeout();
-                this.startTimeout(3);
+            case this._states.keyUp:
+                this._stopTimeout();
+                this._startTimeout(3);
                 break;
-            case this.States.CHARACTER_SPACE:
-                this.startTimeout(4);
-                this.appendRecord(" ");
+            case this._states.characterSpace:
+                this._startTimeout(4);
+                this._appendRecord(" ");
                 break;
-            case this.States.WORD_SPACE:
-                this.startTimeout(10);
-                this.appendRecord("/ ");
+            case this._states.wordSpace:
+                this._startTimeout(10);
+                this._appendRecord("/ ");
                 break;
         }
     }
