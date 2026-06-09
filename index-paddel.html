@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Morse Instructor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="./morse.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>Morse Instructor</h2>
+        <p>Use the "." Key to input Morse code:</p>
+        <form>
+            <div class="form-group">
+                <label for="code-input">Morse:</label>
+                <input class="form-control fs-5" id="code-input" value="<" readonly />
+                <div class="form-group">
+                    <label for="decoded-area">Decoded:</label>
+                    <textarea class="form-control fs-5" rows="10" id="decoded-area" readonly></textarea>
+                </div>
+            </div>
+        </form>
+    </div>
+
+</body>
+
+<script>
+    let codeInputEl = null;
+    let decodeAreaEl = null;
+    let toneGenerator = null;
+    let morseRecorder = null;
+    let autoKeyer = null;
+
+    function updateDecodeArea() {
+        decodeAreaEl.value = MorseDecoder.decode(morseRecorder.record);
+        decodeAreaEl.scrollTop = decodeAreaEl.scrollHeight;
+    }
+
+    function updateCodeInput() {
+        codeInputEl.value = morseRecorder.record.split("\n").slice(-1) + "<";
+    }
+
+    function updateToneGenerator(signal) {
+        if (signal) {
+            toneGenerator.startTone();
+            morseRecorder.triggerKeyDown();
+        } else {
+            toneGenerator.stopTone();
+            morseRecorder.triggerKeyUp();
+        }
+    }
+
+    window.addEventListener("load", (event) => {
+        codeInputEl = document.getElementById("code-input");
+        decodeAreaEl = document.getElementById("decoded-area");
+        toneGenerator = new ToneGenerator();
+
+        morseRecorder = new MorseRecorder();
+        morseRecorder.onRecordChange(updateCodeInput);
+        morseRecorder.onCharacterComplete(updateDecodeArea);
+
+        autoKeyer = new AutoKeyer();
+        autoKeyer.onSignalChange((event) => updateToneGenerator(autoKeyer.signal));
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "." && !e.repeat) {
+            autoKeyer.periodDown();
+        } else if (e.key === "-" && !e.repeat) {
+            autoKeyer.minusDown();
+        }
+    });
+
+    document.addEventListener("keyup", (e) => {
+        if (e.key === ".") {
+            autoKeyer.periodUp();
+        } else if (e.key === "-") {
+            autoKeyer.minusUp();
+        }
+    });
+</script>
+
+</html>

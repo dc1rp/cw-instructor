@@ -4,7 +4,7 @@ class ToneGenerator {
         _frequency = null;
         _currentTime = null;
 
-        constructor(frequency = 550, timeConstant = 0.001) {
+        constructor(frequency = 500, timeConstant = 0.001) {
             this._frequency = frequency;
             this._timeConstant = timeConstant;
 
@@ -106,7 +106,7 @@ class MorseRecorder {
     _state = this._states.idle;
 
     constructor(wpm = 12) {
-        this._timeUnit = 1200 / wpm;
+        this._timeUnit = Math.round(1200 / wpm);
         this._state = this._states.idle;
     }
 
@@ -218,7 +218,11 @@ class MorseRecorder {
         clearTimeout(this._timeout);
     }
 
+    lastTime = 0;
+
     _enter(state) {
+        console.log(this.lastTime - performance.now(), "Entered state:", state);
+        this.lastTime = performance.now();
         switch (state) {
             case this._states.idle:
                 this._stopTimeout();
@@ -229,7 +233,8 @@ class MorseRecorder {
                 this._startTimeout(1);
                 break;
             case this._states.dot:
-                this._startTimeout(2);
+                // FIXME: Fix timing issue
+                this._startTimeout(1.9);
                 this._appendRecord(".");
                 break;
             case this._states.dash:
@@ -278,7 +283,7 @@ class AutoKeyer{
     _signal = null;
 
     constructor(wpm = 12) {
-        this._timeUnit = 1200/wpm
+        this._timeUnit = Math.round(1200/wpm)
         this._state = this._states.idle;
         this._keyMap = []
         this._signal = false;
@@ -320,23 +325,19 @@ class AutoKeyer{
     periodDown(){
         this._keyMap.push('.');
         this._trigger(this._events.periodDown);
-        console.log(this._keyMap);
     }
 
     periodUp(){
         this._keyMap.splice(this._keyMap.indexOf('.'), 1);
-        console.log(this._keyMap);
     }
 
     minusDown(){
         this._keyMap.push('-');
         this._trigger(this._events.minusDown);
-        console.log(this._keyMap);
     }
 
     minusUp(){
         this._keyMap.splice(this._keyMap.indexOf('-'), 1);
-        console.log(this._keyMap);
     }
 
     _trigger(event) {
