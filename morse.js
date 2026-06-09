@@ -1,63 +1,63 @@
 
 class ToneGenerator {
-        _timeConstant = null;
-        _frequency = null;
-        _currentTime = null;
+    _timeConstant = null;
+    _frequency = null;
+    _currentTime = null;
 
-        constructor(frequency = 500, timeConstant = 0.001) {
-            this._frequency = frequency;
-            this._timeConstant = timeConstant;
+    constructor(frequency = 500, timeConstant = 0.001) {
+        this._frequency = frequency;
+        this._timeConstant = timeConstant;
 
-            this._init(this.frequency);
-        }
+        this._init(this.frequency);
+    }
 
-        _init(frequency) {
-            this.audioContext = new AudioContext({latencyHint: "interactive"});
-            this.oscillator = this.audioContext.createOscillator();
-            this.oscillator.type = "sine";
-            this.oscillator.frequency.value = frequency;
+    _init(frequency) {
+        this.audioContext = new AudioContext({ latencyHint: "interactive" });
+        this.oscillator = this.audioContext.createOscillator();
+        this.oscillator.type = "sine";
+        this.oscillator.frequency.value = frequency;
 
-            this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
 
-            this.oscillator.connect(this.gainNode);
-            this.gainNode.connect(this.audioContext.destination);
-        }
+        this.oscillator.connect(this.gainNode);
+        this.gainNode.connect(this.audioContext.destination);
+    }
 
-        get latency() {
-            return this.audioContext.outputLatency;
-        }
+    get latency() {
+        return this.audioContext.outputLatency;
+    }
 
-        get frequency() {
-            return this._frequency;
-        }
+    get frequency() {
+        return this._frequency;
+    }
 
-        _oscillatorStarted() {
-            return this.oscillator.context.state === 'running';
-        }
+    _oscillatorStarted() {
+        return this.oscillator.context.state === 'running';
+    }
 
-        _startOscillator() {
-            if (!this._oscillatorStarted()) {
-                this.oscillator.start();
-                console.log("oscillator started");
-            }
-        }
-
-        startTone() {
-            if (!this._oscillatorStarted()) {
-                this._startOscillator();
-            }
-            this._currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this._currentTime);
-            this.gainNode.gain.setTargetAtTime(1, this._currentTime, this._timeConstant);
-        }
-
-        stopTone() {
-            this._currentTime = this.audioContext.currentTime;
-            this.gainNode.gain.cancelScheduledValues(this._currentTime);
-            this.gainNode.gain.setTargetAtTime(0, this._currentTime, this._timeConstant);
+    _startOscillator() {
+        if (!this._oscillatorStarted()) {
+            this.oscillator.start();
+            console.log("oscillator started");
         }
     }
+
+    startTone() {
+        if (!this._oscillatorStarted()) {
+            this._startOscillator();
+        }
+        this._currentTime = this.audioContext.currentTime;
+        this.gainNode.gain.cancelScheduledValues(this._currentTime);
+        this.gainNode.gain.setTargetAtTime(1, this._currentTime, this._timeConstant);
+    }
+
+    stopTone() {
+        this._currentTime = this.audioContext.currentTime;
+        this.gainNode.gain.cancelScheduledValues(this._currentTime);
+        this.gainNode.gain.setTargetAtTime(0, this._currentTime, this._timeConstant);
+    }
+}
 
 class MorseDecoder {
     static CODE = {
@@ -105,33 +105,38 @@ class MorseRecorder {
     _record = '';
     _state = this._states.idle;
 
-    constructor(wpm = 12) {
+    constructor(wpm = 12, tolerance = 0.1) {
         this._timeUnit = Math.round(1200 / wpm);
+        this._tolerance = tolerance;
         this._state = this._states.idle;
     }
 
-    get record(){
+    get tolerance() {
+        return this._tolerance;
+    }
+
+    get record() {
         return this._record;
     }
 
-    set record(value){
+    set record(value) {
         this._record = value;
         dispatchEvent(new CustomEvent(this.events.recordChange));
     }
 
-    get state(){
+    get state() {
         return this._state;
     }
 
-    _appendRecord(symbol){
+    _appendRecord(symbol) {
         this.record += symbol;
 
-        if (symbol === " "){
+        if (symbol === " ") {
             dispatchEvent(new CustomEvent(this.events.characterComplete));
         }
     }
 
-    _correctRecord(symbol){
+    _correctRecord(symbol) {
         this.record = this.record.slice(0, -1) + symbol;
     }
 
@@ -143,11 +148,11 @@ class MorseRecorder {
         addEventListener(this.events.characterComplete, callback);
     }
 
-    triggerKeyDown(){
+    triggerKeyDown() {
         this._trigger(this._events.keyDown);
     }
 
-    triggerKeyUp(){
+    triggerKeyUp() {
         this._trigger(this._events.keyUp);
     }
 
@@ -203,12 +208,12 @@ class MorseRecorder {
         }
     }
 
-    _switch (state) {
+    _switch(state) {
         this._state = state;
         this._enter(state);
     }
 
-    _startTimeout(delay){
+    _startTimeout(delay) {
         this._timeout = setTimeout(() => {
             this._trigger(this._events.timeout);
         }, this._timeUnit * delay);
@@ -218,11 +223,7 @@ class MorseRecorder {
         clearTimeout(this._timeout);
     }
 
-    lastTime = 0;
-
     _enter(state) {
-        console.log(this.lastTime - performance.now(), "Entered state:", state);
-        this.lastTime = performance.now();
         switch (state) {
             case this._states.idle:
                 this._stopTimeout();
@@ -230,11 +231,10 @@ class MorseRecorder {
                 break;
             case this._states.keyDown:
                 this._stopTimeout();
-                this._startTimeout(1);
+                this._startTimeout(1 * (1 - this._tolerance));
                 break;
             case this._states.dot:
-                // FIXME: Fix timing issue
-                this._startTimeout(1.9);
+                this._startTimeout(2 * (1 - this._tolerance));
                 this._appendRecord(".");
                 break;
             case this._states.dash:
@@ -256,7 +256,7 @@ class MorseRecorder {
     }
 }
 
-class AutoKeyer{
+class AutoKeyer {
     _states = Object.freeze({
         idle: 0,
         dot: 1,
@@ -283,38 +283,38 @@ class AutoKeyer{
     _signal = null;
 
     constructor(wpm = 12) {
-        this._timeUnit = Math.round(1200/wpm)
+        this._timeUnit = Math.round(1200 / wpm)
         this._state = this._states.idle;
         this._keyMap = []
         this._signal = false;
     }
 
-    get signal(){
+    get signal() {
         return this._signal;
     }
 
-    set signal(value){
+    set signal(value) {
         this._signal = value;
         dispatchEvent(new CustomEvent(this.events.signalChange));
     }
 
-    get keyMap(){
+    get keyMap() {
         return this._keyMap
     }
 
-    get wpm(){
-        return this._timeUnit*1200;
+    get wpm() {
+        return this._timeUnit * 1200;
     }
 
-    get state(){
+    get state() {
         return this._state;
     }
 
-    get lastActiveState(){
+    get lastActiveState() {
         return this._lastActiveState
     }
 
-    set lastActiveState(value){
+    set lastActiveState(value) {
         this._lastActiveState = value;
     }
 
@@ -322,21 +322,21 @@ class AutoKeyer{
         addEventListener(this.events.signalChange, callback);
     }
 
-    periodDown(){
+    periodDown() {
         this._keyMap.push('.');
         this._trigger(this._events.periodDown);
     }
 
-    periodUp(){
+    periodUp() {
         this._keyMap.splice(this._keyMap.indexOf('.'), 1);
     }
 
-    minusDown(){
+    minusDown() {
         this._keyMap.push('-');
         this._trigger(this._events.minusDown);
     }
 
-    minusUp(){
+    minusUp() {
         this._keyMap.splice(this._keyMap.indexOf('-'), 1);
     }
 
@@ -369,18 +369,18 @@ class AutoKeyer{
         }
     }
 
-    _switch(state){
+    _switch(state) {
         this._state = state;
         this._enter(state);
     }
 
-    _startTimeout(delay){
+    _startTimeout(delay) {
         this._timeout = setTimeout(() => {
             this._trigger(this._events.timeout);
         }, this._timeUnit * delay);
     }
 
-    _enter(state){
+    _enter(state) {
         switch (state) {
             case this._states.idle:
                 break;
@@ -395,15 +395,15 @@ class AutoKeyer{
                 this.lastActiveState = this._states.dash
                 break;
             case this._states.squeeze:
-                if (this.keyMap.length === 0){
+                if (this.keyMap.length === 0) {
                     this._switch(this._states.idle);
-                } else if (this.keyMap.length === 1 && this.keyMap.includes('.')){
+                } else if (this.keyMap.length === 1 && this.keyMap.includes('.')) {
                     this._switch(this._states.dot);
-                } else if (this.keyMap.length === 1 && this.keyMap.includes('-')){
+                } else if (this.keyMap.length === 1 && this.keyMap.includes('-')) {
                     this._switch(this._states.dash);
-                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dash){
+                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dash) {
                     this._switch(this._states.dot);
-                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dot){
+                } else if (this.keyMap.length === 2 && this.lastActiveState === this._states.dot) {
                     this._switch(this._states.dash);
                 }
                 break;
@@ -414,7 +414,7 @@ class AutoKeyer{
         }
     }
 
-    _switch(state){
+    _switch(state) {
         this._state = state;
         this._enter(state);
     }
